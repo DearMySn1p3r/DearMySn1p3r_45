@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Web Diary Maker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Jua&display=swap" rel="stylesheet">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root{
+    --c-accent:#f4a9c0;
+    --c-accent-dark:#d488a0;
+    --c-tint:rgba(244,169,192,.10);
+    --c-bg-light:rgba(244,169,192,.07);
+    --c-border:rgba(244,169,192,.30);
+    --c-surface:#ffffff;
+    --c-text-main:#43383d;
+    --c-text-sub:#9a8a90;
+
+    --ui-bg:#f6f4f5; --ui-panel:#ffffff; --ui-border:#ece8ea; --ui-text:#43383d;
+    --radius-sm:8px; --radius-md:14px; --radius-lg:20px;
+    --diary-font:'Pretendard',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--ui-bg);color:var(--ui-text);font-family:'Pretendard',sans-serif;-webkit-font-smoothing:antialiased;}
+
+  .app{ display:flex; min-height:100vh; }
+  .editor{ width:320px; flex:0 0 320px; background:var(--ui-panel); border-right:1px solid var(--ui-border); height:100vh; overflow-y:auto; position:sticky; top:0; z-index:10; display:flex; flex-direction:column; }
+  .editor::-webkit-scrollbar{ width:5px; }
+  .editor::-webkit-scrollbar-thumb{ background:#e2dde0; border-radius:5px; }
+
+  .brand{ padding:30px 24px 22px; border-bottom:1px solid var(--ui-border); }
+  .brand .logo{ font-family:'Gowun Batang',serif; font-size:21px; font-weight:700; color:var(--ui-text); letter-spacing:-.02em; display:flex; align-items:center; gap:8px; }
+  .brand .logo .h{ color:var(--c-accent-dark); font-family:'Pretendard'; font-size:16px; }
+  .brand .tag{ font-size:12px; color:var(--c-text-sub); margin-top:8px; line-height:1.6; font-weight:300; }
+
+  .sect{ padding:22px 24px; border-bottom:1px solid var(--ui-border); }
+  .sect-title{ font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--c-text-sub); margin:0 0 14px; font-weight:600; }
+
+  .swatches{ display:grid; grid-template-columns:repeat(6,1fr); gap:9px; }
+  .swatch{ aspect-ratio:1; border-radius:50%; cursor:pointer; border:1px solid rgba(0,0,0,.06); transition:transform .2s ease; }
+  .swatch:hover{ transform:scale(1.12); }
+  .swatch.active{ box-shadow:0 0 0 2px var(--c-surface),0 0 0 4px var(--c-accent-dark); }
+
+  .row{ display:flex; align-items:center; justify-content:space-between; margin-top:15px; }
+  .row label{ font-size:13px; color:var(--ui-text); }
+  .custom-color{ width:28px; height:28px; padding:0; border:none; border-radius:50%; cursor:pointer; background:transparent; overflow:hidden; }
+  .custom-color::-webkit-color-swatch-wrapper{ padding:0; }
+  .custom-color::-webkit-color-swatch{ border:1px solid var(--ui-border); border-radius:50%; }
+
+  .segbar{ display:flex; gap:6px; background:var(--ui-bg); padding:4px; border-radius:var(--radius-sm); }
+  .segbar button{ flex:1; font-size:12px; padding:8px 0; border:none; border-radius:5px; background:transparent; cursor:pointer; color:var(--c-text-sub); transition:all .2s; font-family:inherit; }
+  .segbar button.active{ background:var(--c-surface); color:var(--ui-text); box-shadow:0 1px 3px rgba(0,0,0,.06); font-weight:500; }
+
+  .btn{ display:inline-flex; align-items:center; justify-content:center; gap:8px; border:1px solid var(--ui-border); background:var(--c-surface); color:var(--ui-text); padding:12px 16px; font-size:13px; border-radius:var(--radius-sm); cursor:pointer; width:100%; transition:all .2s; font-family:inherit; font-weight:500; }
+  .btn:hover{ background:var(--ui-bg); }
+  .btn.primary{ background:var(--c-accent-dark); color:#fff; border-color:var(--c-accent-dark); }
+  .btn.primary:hover{ filter:brightness(.96); }
+  .btn-mini{ width:auto; padding:6px 12px; font-size:11px; margin-top:12px; border-radius:5px; }
+
+  .slider{ width:100%; accent-color:var(--c-accent-dark); margin-top:12px; }
+  .hint{ font-size:11px; color:var(--c-text-sub); margin-top:9px; line-height:1.5; }
+
+  .stage{ flex:1; display:flex; align-items:center; justify-content:center; padding:40px; }
+  #capture{ width:100%; max-width:960px; border-radius:var(--radius-md); overflow:hidden; background:var(--c-surface); box-shadow:0 20px 50px rgba(180,120,140,.16); border:1px solid var(--c-border); display:flex; flex-direction:column; }
+  #capture.font-sans{ --diary-font:'Pretendard',sans-serif; }
+  #capture.font-serif{ --diary-font:'Gowun Batang',serif; }
+  #capture.font-round{ --diary-font:'Jua',sans-serif; }
+
+  .browser-bar{ height:48px; display:flex; align-items:center; padding:0 20px; border-bottom:1px solid var(--c-border); background:var(--c-tint); }
+  .dots{ display:flex; gap:8px; width:60px; }
+  .dots i{ width:10px; height:10px; border-radius:50%; background:var(--c-accent); opacity:.7; }
+  .url-bar{ flex:1; text-align:center; font-size:12px; color:var(--c-accent-dark); letter-spacing:.05em; outline:none; }
+  .browser-icons{ width:60px; text-align:right; color:var(--c-accent-dark); font-size:14px; letter-spacing:3px; }
+
+  .diary-body{ display:flex; flex:1; background:var(--c-surface); transition:background .3s ease; position:relative; font-family:var(--diary-font); }
+  .skin-solid{ background-color:var(--c-surface); }
+  .skin-dots{ background-image:radial-gradient(var(--c-border) 1.3px,transparent 1.4px); background-size:20px 20px; }
+  .skin-grid{ background-image:linear-gradient(var(--c-border) 1px,transparent 1px),linear-gradient(90deg,var(--c-border) 1px,transparent 1px); background-size:24px 24px; }
+  .skin-linear{ background:linear-gradient(180deg,var(--c-surface) 0%,var(--c-tint) 100%); }
+
+  .col-profile{ width:248px; border-right:1px solid var(--c-border); padding:30px 24px; display:flex; flex-direction:column; background:var(--c-tint); }
+  .photo-frame{ width:100%; aspect-ratio:4/5; border:1px solid var(--c-border); border-radius:var(--radius-sm); overflow:hidden; background:var(--c-bg-light); display:flex; align-items:center; justify-content:center; cursor:pointer; position:relative; }
+  .photo-frame.shape-square{ aspect-ratio:1/1; }
+  .photo-frame.shape-circle{ aspect-ratio:1/1; border-radius:50%; }
+  .photo-frame img{ position:absolute; display:none; user-select:none; -webkit-user-drag:none; max-width:none; }
+  .photo-frame.has-img img{ display:block; }
+  .photo-frame.has-img .ph{ display:none; }
+  .photo-frame .ph{ text-align:center; color:var(--c-accent-dark); font-size:12px; }
+
+  .nameplate{ margin-top:22px; font-family:'Gowun Batang',serif; font-size:18px; font-weight:700; color:var(--c-text-main); text-align:center; outline:none; }
+  .counter{ display:flex; justify-content:center; gap:6px; margin-top:12px; font-size:10.5px; color:var(--c-text-sub); letter-spacing:.03em; }
+  .counter b{ color:var(--c-accent-dark); font-weight:700; }
+  .counter .sep{ color:var(--c-border); }
+  .status{ margin-top:12px; font-size:12px; line-height:1.7; color:var(--c-text-sub); text-align:center; outline:none; min-height:36px; }
+
+  .divider{ height:1px; background:var(--c-border); margin:22px 0; position:relative; }
+  .divider::after{ content:"\2665"; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:var(--c-tint); color:var(--c-accent-dark); font-size:9px; padding:0 6px; }
+
+  .history{ flex:1; }
+  .h-title{ font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--c-accent-dark); margin-bottom:12px; font-weight:600; }
+  .history ul{ list-style:none; margin:0; padding:0; }
+  .history li{ font-size:12px; color:var(--c-text-main); padding:4px 0; outline:none; display:flex; align-items:flex-start; gap:8px; }
+  .history li::before{ content:"-"; color:var(--c-accent-dark); }
+
+  .col-main{ flex:1; padding:30px 38px; display:flex; flex-direction:column; gap:30px; background:var(--c-surface); }
+  .section-hd{ display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:15px; border-bottom:1px solid var(--c-border); padding-bottom:8px; }
+  .section-hd .title{ font-family:'Gowun Batang',serif; font-size:16px; font-weight:700; color:var(--c-accent-dark); outline:none; }
+  .section-hd .sub{ font-size:11px; color:var(--c-text-sub); letter-spacing:.05em; outline:none; }
+  .section-hd .add{ font-size:11px; color:var(--c-accent-dark); background:transparent; border:1px solid var(--c-border); cursor:pointer; border-radius:20px; padding:3px 11px; }
+  .exporting .section-hd .add{ display:none !important; }
+
+  .hero-wrap{ flex:1; display:flex; flex-direction:column; }
+  .hero{ width:100%; aspect-ratio:16/9; border-radius:var(--radius-sm); border:1px solid var(--c-border); background:var(--c-bg-light); overflow:hidden; position:relative; cursor:grab; touch-action:none; }
+  .hero.dragging{ cursor:grabbing; }
+  .hero img{ position:absolute; display:none; user-select:none; -webkit-user-drag:none; max-width:none; }
+  .hero.has-img img{ display:block; }
+  .hero.has-img .hero-ph{ display:none; }
+  .hero-ph{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--c-accent-dark); font-size:13px; }
+  .hero-ph span{ font-size:11px; margin-top:6px; opacity:.75; }
+
+  .guestbook{ margin-top:auto; }
+  .comment{ display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--c-border); position:relative; }
+  .comment:last-child{ border-bottom:none; }
+  .comment .av{ width:32px; height:32px; border-radius:50%; background:var(--c-accent-dark); display:flex; align-items:center; justify-content:center; font-size:11px; color:#fff; flex:0 0 32px; }
+  .comment .body{ flex:1; min-width:0; }
+  .comment .who{ font-size:12px; font-weight:600; color:var(--c-text-main); outline:none; display:flex; align-items:baseline; gap:8px; }
+  .comment .time{ font-weight:400; font-size:10px; color:var(--c-text-sub); }
+  .comment .txt{ font-size:13px; color:var(--c-text-main); margin-top:4px; outline:none; line-height:1.6; word-break:break-word; }
+  .comment .rm{ position:absolute; right:0; top:12px; width:18px; height:18px; border-radius:50%; border:1px solid var(--c-border); background:var(--c-surface); color:var(--c-text-sub); font-size:11px; line-height:1; display:none; cursor:pointer; align-items:center; justify-content:center; }
+  .comment:hover .rm{ display:flex; }
+  .exporting .comment .rm{ display:none !important; }
+
+  .col-nav{ width:172px; border-left:1px solid var(--c-border); padding:30px 22px; background:var(--c-tint); }
+  .nav-menu{ display:flex; flex-direction:column; gap:7px; margin-bottom:34px; }
+  .nav-item{ padding:8px 12px; font-size:13px; color:var(--c-text-sub); border-radius:6px; cursor:default; outline:none; transition:all .2s; display:flex; align-items:center; gap:8px; }
+  .nav-item::before{ content:""; width:5px; height:5px; border-radius:50%; background:transparent; flex:0 0 5px; }
+  .nav-item.active{ color:var(--c-accent-dark); font-weight:600; background:var(--c-bg-light); }
+  .nav-item.active::before{ background:var(--c-accent-dark); }
+
+  .bgm-widget{ padding:16px; border:1px solid var(--c-border); border-radius:var(--radius-sm); background:var(--c-surface); }
+  .bgm-title{ font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:var(--c-accent-dark); margin-bottom:8px; font-weight:600; }
+  .bgm-track{ font-size:12px; font-weight:500; color:var(--c-text-main); outline:none; line-height:1.45; word-break:keep-all; }
+  .bgm-bar{ height:4px; border-radius:4px; background:var(--c-border); margin:12px 0; position:relative; overflow:hidden; }
+  .bgm-bar i{ position:absolute; left:0; top:0; height:100%; width:34%; background:var(--c-accent-dark); border-radius:4px; }
+  .bgm-controls{ display:flex; justify-content:space-between; color:var(--c-accent-dark); font-size:10px; letter-spacing:2px; cursor:default; }
+
+  [contenteditable="true"]{ transition:background .2s,box-shadow .2s; }
+  [contenteditable="true"]:hover{ background:rgba(0,0,0,.03); border-radius:4px; box-shadow:0 0 0 4px rgba(0,0,0,.03); }
+  [contenteditable="true"]:focus{ background:var(--c-surface); box-shadow:0 0 0 2px var(--c-accent-dark); border-radius:4px; }
+
+  .exporting .hero-ph, .exporting .photo-frame .ph{ display:none !important; }
+  .exporting [contenteditable]{ background:transparent !important; box-shadow:none !important; }
+
+  .toast{ position:fixed; bottom:30px; left:50%; transform:translate(-50%,20px); background:var(--c-accent-dark); color:#fff; padding:12px 24px; border-radius:30px; font-size:13px; opacity:0; pointer-events:none; transition:all .3s ease; z-index:999; box-shadow:0 10px 24px rgba(0,0,0,.15); }
+  .toast.show{ opacity:1; transform:translate(-50%,0); }
+
+  @media (max-width:1024px){
+    .app{ flex-direction:column; }
+    .editor{ width:100%; height:auto; position:static; border-right:none; border-bottom:1px solid var(--ui-border); }
+    .stage{ padding:20px; align-items:flex-start; }
+    .diary-body{ flex-direction:column; }
+    .col-profile,.col-nav{ width:100%; border-right:none; border-bottom:1px solid var(--c-border); border-left:none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="editor">
+    <div class="brand">
+      <div class="logo"><span class="h">&#9829;</span> Web Diary Maker</div>
+      <div class="tag">텍스트를 클릭해 나만의 감성 공간을 채워보세요.</div>
+    </div>
+
+    <div class="sect">
+      <div class="sect-title">Theme Color</div>
+      <div class="swatches" id="swatches"></div>
+      <div class="row">
+        <label>직접 고르기</label>
+        <input type="color" class="custom-color" id="customColor" value="#f4a9c0" />
+      </div>
+    </div>
+
+    <div class="sect">
+      <div class="sect-title">Background Skin</div>
+      <div class="segbar" id="skinbar">
+        <button data-skin="skin-solid" class="active">단색</button>
+        <button data-skin="skin-linear">그라데이션</button>
+        <button data-skin="skin-dots">도트</button>
+        <button data-skin="skin-grid">격자</button>
+      </div>
+    </div>
+
+    <div class="sect">
+      <div class="sect-title">Font Style</div>
+      <div class="segbar" id="fontbar">
+        <button data-font="font-sans" class="active">기본</button>
+        <button data-font="font-serif">명조</button>
+        <button data-font="font-round">둥근</button>
+      </div>
+    </div>
+
+    <div class="sect">
+      <div class="sect-title">Main Photo</div>
+      <button class="btn" id="heroUploadBtn">메인 사진 올리기</button>
+      <input type="file" id="heroFile" accept="image/*" hidden />
+      <div class="row">
+        <label>확대 / 축소</label>
+        <span id="zoomVal" style="font-size:11px;color:var(--c-text-sub)">100%</span>
+      </div>
+      <input type="range" min="1" max="3" step="0.01" value="1" class="slider" id="zoom" />
+      <div class="hint">사진 등록 후 드래그로 이동, 스크롤로 확대/축소돼요. 비율은 그대로 유지됩니다.</div>
+      <button class="btn btn-mini" id="heroReset">위치 초기화</button>
+    </div>
+
+    <div class="sect">
+      <div class="sect-title">Profile Photo</div>
+      <button class="btn" id="profUploadBtn">프로필 사진 올리기</button>
+      <input type="file" id="profFile" accept="image/*" hidden />
+      <div class="segbar" id="shapebar" style="margin-top:12px;">
+        <button data-shape="shape-portrait" class="active">세로</button>
+        <button data-shape="shape-square">사각</button>
+        <button data-shape="shape-circle">원형</button>
+      </div>
+    </div>
+
+    <div class="sect">
+      <div class="sect-title">Guestbook</div>
+      <button class="btn" id="addCommentBtn">＋ 방명록 추가</button>
+      <div class="hint">방명록 글자를 클릭해 수정하거나, 글에 마우스를 올려 ✕로 지울 수 있어요.</div>
+    </div>
+
+    <div class="sect" style="border-bottom:none; padding-bottom:40px;">
+      <div class="sect-title">Export</div>
+      <button class="btn primary" id="saveBtn">PNG 이미지로 저장</button>
+      <div class="hint">에디터 영역을 제외한 다이어리만 고화질 PNG로 저장됩니다.</div>
+    </div>
+  </aside>
+
+  <main class="stage">
+    <div id="capture" class="font-sans">
+      <div class="browser-bar">
+        <div class="dots"><i></i><i></i><i></i></div>
+        <div class="url-bar" contenteditable="true">주소를 입력하세요</div>
+        <div class="browser-icons">&#9829;</div>
+      </div>
+
+      <div class="diary-body skin-solid" id="hompyBody">
+
+        <div class="col-profile">
+          <div class="photo-frame shape-portrait" id="profFrame">
+            <img id="profImg" alt="" />
+            <div class="ph">＋ 프로필 사진</div>
+          </div>
+          <div class="nameplate" contenteditable="true">이름을 입력하세요</div>
+          <div class="counter">TODAY <b contenteditable="true">0</b> <span class="sep">/</span> TOTAL <b contenteditable="true">1</b></div>
+          <div class="status" contenteditable="true">소개글을 입력하세요</div>
+
+          <div class="divider"></div>
+
+          <div class="history">
+            <div class="h-title">소식</div>
+            <ul>
+              <li contenteditable="true">내용을 입력하세요</li>
+              <li contenteditable="true">내용을 입력하세요</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="col-main">
+          <div class="hero-wrap">
+            <div class="section-hd">
+              <div class="title" contenteditable="true">제목을 입력하세요</div>
+              <div class="sub" contenteditable="true">날짜를 입력하세요</div>
+            </div>
+            <div class="hero" id="hero">
+              <img id="heroImg" alt="" />
+              <div class="hero-ph">
+                <div>＋ 메인 사진 추가</div>
+                <span>클릭해서 사진을 올려보세요</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="guestbook">
+            <div class="section-hd">
+              <div class="title">방명록</div>
+              <div class="add" id="addCommentInline">＋ 추가</div>
+            </div>
+            <div id="commentList">
+              <div class="comment">
+                <div class="av">&#9825;</div>
+                <div class="body">
+                  <div class="who" contenteditable="true">이름 <span class="time">날짜</span></div>
+                  <div class="txt" contenteditable="true">댓글을 적어주세요</div>
+                </div>
+                <div class="rm" title="삭제">&times;</div>
+              </div>
+              <div class="comment">
+                <div class="av">&#9825;</div>
+                <div class="body">
+                  <div class="who" contenteditable="true">이름 <span class="time">날짜</span></div>
+                  <div class="txt" contenteditable="true">댓글을 적어주세요</div>
+                </div>
+                <div class="rm" title="삭제">&times;</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-nav">
+          <div class="nav-menu">
+            <div class="nav-item active" contenteditable="true">Home</div>
+            <div class="nav-item" contenteditable="true">Profile</div>
+            <div class="nav-item" contenteditable="true">Diary</div>
+            <div class="nav-item" contenteditable="true">Photo</div>
+            <div class="nav-item" contenteditable="true">Guest</div>
+          </div>
+
+          <div class="bgm-widget">
+            <div class="bgm-title">Now Playing</div>
+            <div class="bgm-track" contenteditable="true">음악 제목을 입력하세요</div>
+            <div class="bgm-bar"><i></i></div>
+            <div class="bgm-controls">&#9665; &#10074;&#10074; &#9655;</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast">저장되었습니다.</div>
+
+<script>
+/* ---- pastel palette (light) ---- */
+const PRESETS = ["#f4a9c0","#f6b39a","#f2cf7e","#9fd9b4","#9cc4ec","#c4abec"];
+function hexToRgb(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');return{r:parseInt(h.slice(0,2),16),g:parseInt(h.slice(2,4),16),b:parseInt(h.slice(4,6),16)};}
+function rgbToHex(r,g,b){const t=v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0');return '#'+t(r)+t(g)+t(b);}
+function applyTheme(hex){
+  const c=hexToRgb(hex);
+  const dark={r:92,g:60,b:72};
+  const deep=rgbToHex(c.r+(dark.r-c.r)*0.36, c.g+(dark.g-c.g)*0.36, c.b+(dark.b-c.b)*0.36);
+  const r=document.documentElement.style;
+  r.setProperty('--c-accent',hex);
+  r.setProperty('--c-accent-dark',deep);
+  r.setProperty('--c-tint',`rgba(${c.r},${c.g},${c.b},0.10)`);
+  r.setProperty('--c-bg-light',`rgba(${c.r},${c.g},${c.b},0.07)`);
+  r.setProperty('--c-border',`rgba(${c.r},${c.g},${c.b},0.30)`);
+  document.getElementById('customColor').value=hex;
+  document.querySelectorAll('.swatch').forEach(s=>s.classList.toggle('active',s.dataset.c.toLowerCase()===hex.toLowerCase()));
+}
+const sw=document.getElementById('swatches');
+PRESETS.forEach(c=>{const d=document.createElement('div');d.className='swatch';d.dataset.c=c;d.style.background=c;d.onclick=()=>applyTheme(c);sw.appendChild(d);});
+document.getElementById('customColor').addEventListener('input',e=>applyTheme(e.target.value));
+applyTheme(PRESETS[0]);
+
+/* ---- skin ---- */
+const body=document.getElementById('hompyBody');
+document.querySelectorAll('#skinbar button').forEach(b=>{
+  b.onclick=()=>{document.querySelectorAll('#skinbar button').forEach(x=>x.classList.remove('active'));b.classList.add('active');body.className='diary-body '+(b.dataset.skin||'skin-solid');};
+});
+
+/* ---- font ---- */
+const capture=document.getElementById('capture');
+document.querySelectorAll('#fontbar button').forEach(b=>{
+  b.onclick=()=>{document.querySelectorAll('#fontbar button').forEach(x=>x.classList.remove('active'));b.classList.add('active');capture.className=b.dataset.font;};
+});
+
+/* ===== image rendering helper: cover-fit using explicit px (html2canvas-safe) ===== */
+function coverFit(imgEl, boxEl, zoom, ox, oy){
+  const nw=imgEl.naturalWidth, nh=imgEl.naturalHeight;
+  if(!nw||!nh) return;
+  const cw=boxEl.clientWidth, ch=boxEl.clientHeight;
+  if(!cw||!ch) return;
+  const cover=Math.max(cw/nw, ch/nh)*(zoom||1);
+  const w=nw*cover, h=nh*cover;
+  imgEl.style.width=w+'px';
+  imgEl.style.height=h+'px';
+  imgEl.style.left=((cw-w)/2 + (ox||0))+'px';
+  imgEl.style.top=((ch-h)/2 + (oy||0))+'px';
+}
+
+/* ---- profile photo + shape ---- */
+const profFrame=document.getElementById('profFrame'),profImg=document.getElementById('profImg'),profFile=document.getElementById('profFile');
+function fitProfile(){ if(profFrame.classList.contains('has-img')) coverFit(profImg, profFrame, 1, 0, 0); }
+profImg.addEventListener('load', fitProfile);
+function loadProf(f){const rd=new FileReader();rd.onload=e=>{profImg.src=e.target.result;profFrame.classList.add('has-img');};rd.readAsDataURL(f);}
+profFrame.onclick=()=>profFile.click();
+document.getElementById('profUploadBtn').onclick=()=>profFile.click();
+profFile.onchange=e=>{if(e.target.files[0])loadProf(e.target.files[0]);};
+document.querySelectorAll('#shapebar button').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('#shapebar button').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+    const had=profFrame.classList.contains('has-img');
+    profFrame.className='photo-frame '+b.dataset.shape+(had?' has-img':'');
+    requestAnimationFrame(fitProfile);
+  };
+});
+
+/* ---- hero photo: upload + zoom + drag (aspect preserved) ---- */
+const hero=document.getElementById('hero'),heroImg=document.getElementById('heroImg'),heroFile=document.getElementById('heroFile'),zoom=document.getElementById('zoom'),zoomVal=document.getElementById('zoomVal');
+let state={zoom:1,ox:0,oy:0};
+function applyHero(){
+  if(!hero.classList.contains('has-img')) return;
+  coverFit(heroImg, hero, state.zoom, state.ox, state.oy);
+  zoom.value=state.zoom; zoomVal.textContent=Math.round(state.zoom*100)+'%';
+}
+heroImg.addEventListener('load', applyHero);
+function loadHero(f){const rd=new FileReader();rd.onload=e=>{heroImg.src=e.target.result;hero.classList.add('has-img');state={zoom:1,ox:0,oy:0};};rd.readAsDataURL(f);}
+document.getElementById('heroUploadBtn').onclick=()=>heroFile.click();
+heroFile.onchange=e=>{if(e.target.files[0])loadHero(e.target.files[0]);};
+hero.addEventListener('click',()=>{if(!hero.classList.contains('has-img'))heroFile.click();});
+zoom.addEventListener('input',()=>{state.zoom=parseFloat(zoom.value);applyHero();});
+document.getElementById('heroReset').onclick=()=>{state={zoom:1,ox:0,oy:0};applyHero();};
+hero.addEventListener('wheel',e=>{if(!hero.classList.contains('has-img'))return;e.preventDefault();state.zoom=Math.min(3,Math.max(1,state.zoom+(e.deltaY<0?0.08:-0.08)));applyHero();},{passive:false});
+let drag=null;
+hero.addEventListener('pointerdown',e=>{if(!hero.classList.contains('has-img'))return;drag={px:e.clientX,py:e.clientY,ox:state.ox,oy:state.oy};hero.classList.add('dragging');hero.setPointerCapture(e.pointerId);});
+hero.addEventListener('pointermove',e=>{if(!drag)return;state.ox=drag.ox+(e.clientX-drag.px);state.oy=drag.oy+(e.clientY-drag.py);applyHero();});
+hero.addEventListener('pointerup',()=>{drag=null;hero.classList.remove('dragging');});
+hero.addEventListener('pointercancel',()=>{drag=null;hero.classList.remove('dragging');});
+
+/* keep images fitted on resize */
+let rT;window.addEventListener('resize',()=>{clearTimeout(rT);rT=setTimeout(()=>{applyHero();fitProfile();},120);});
+
+/* ---- guestbook add / remove ---- */
+const list=document.getElementById('commentList');
+function bindRemove(node){ node.querySelector('.rm').onclick=()=>node.remove(); }
+function escEditablePaste(el){ el.addEventListener('paste',e=>{e.preventDefault();const t=(e.clipboardData||window.clipboardData).getData('text');document.execCommand('insertText',false,t);}); }
+function addComment(){
+  const d=document.createElement('div');
+  d.className='comment';
+  d.innerHTML='<div class="av">&#9825;</div><div class="body"><div class="who" contenteditable="true">이름 <span class="time">날짜</span></div><div class="txt" contenteditable="true">댓글을 적어주세요</div></div><div class="rm" title="삭제">&times;</div>';
+  list.appendChild(d);
+  bindRemove(d);
+  d.querySelectorAll('[contenteditable="true"]').forEach(escEditablePaste);
+}
+document.getElementById('addCommentBtn').onclick=addComment;
+document.getElementById('addCommentInline').onclick=addComment;
+list.querySelectorAll('.comment').forEach(bindRemove);
+
+/* ---- export ---- */
+const toast=document.getElementById('toast');
+function showToast(m){toast.textContent=m;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),2000);}
+document.getElementById('saveBtn').addEventListener('click',async()=>{
+  const node=document.getElementById('capture');
+  showToast('이미지 생성 중...');
+  await (document.fonts?document.fonts.ready:Promise.resolve());
+  applyHero(); fitProfile();
+  document.body.classList.add('exporting');
+  try{
+    const canvas=await html2canvas(node,{scale:2,backgroundColor:null,useCORS:true,logging:false});
+    const link=document.createElement('a');link.download='my-web-diary.png';link.href=canvas.toDataURL('image/png');link.click();
+    showToast('저장되었습니다 ♡');
+  }catch(err){console.error(err);showToast('저장에 실패했어요. 다시 시도해주세요.');}
+  finally{document.body.classList.remove('exporting');}
+});
+
+/* ---- clean paste for all editable ---- */
+document.querySelectorAll('[contenteditable="true"]').forEach(escEditablePaste);
+</script>
+</body>
+</html>
