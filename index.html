@@ -219,6 +219,12 @@
   .gb .cbody{min-width:0;flex:1;}
   .gb .who{display:flex;align-items:baseline;gap:7px;font-size:10.5px;}
   .gb .n{font-weight:700;outline:none;}
+  .gb.custom .av{background:var(--gb-c) !important;}
+  .gb.custom .n{color:var(--gb-n);}
+  label.av{position:relative;cursor:pointer;transition:box-shadow .15s;}
+  label.av:hover{box-shadow:0 0 0 2px var(--c-white),0 0 0 3.5px var(--c-line);}
+  label.av input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0;}
+  .exporting label.av{box-shadow:none !important;}
   .gb .w{font-size:9px;color:var(--c-sub);outline:none;}
   .gb .txt{font-size:10.5px;color:var(--c-body);margin-top:3px;outline:none;line-height:1.6;word-break:break-word;}
 
@@ -393,7 +399,7 @@
       <button class="btn" data-add="diary">다이어리 글 추가</button>
       <button class="btn" data-add="photo">사진첩 칸 추가</button>
       <button class="btn" data-add="guest">방명록 추가</button>
-      <div class="hint">오른쪽 탭을 누르면 페이지가 바뀌어요. 항목에 마우스를 올리면 지우기 버튼이 보여요. 사진첩은 왼쪽 위 손잡이를 끌거나 ‹ › 로 순서를 바꿀 수 있어요.</div>
+      <div class="hint">방명록의 동그라미를 누르면 그 방문자의 색을 바꿀 수 있어요. 오른쪽 탭을 누르면 페이지가 바뀌어요. 항목에 마우스를 올리면 지우기 버튼이 보여요. 사진첩은 왼쪽 위 손잡이를 끌거나 ‹ › 로 순서를 바꿀 수 있어요.</div>
     </div>
 
     <div class="sect">
@@ -801,7 +807,11 @@ function addPhoto(){
 /* ---------- guest book ---------- */
 const guestList=document.getElementById('guestList');
 function updateCount(){document.getElementById('gbCount').textContent=guestList.children.length;}
-function addGuest(){makeItem('<span class="av"></span><div class="cbody"><div class="who"><span class="n" contenteditable="true">이름</span></div><div class="txt" contenteditable="true">문구를 적어주세요</div></div>','gb',guestList,updateCount);updateCount();}
+function addGuest(){const d=makeItem('<label class="av" title="눌러서 색 바꾸기"><input type="color" aria-label="방문자 색"></label><div class="cbody"><div class="who"><span class="n" contenteditable="true">이름</span></div><div class="txt" contenteditable="true">문구를 적어주세요</div></div>','gb',guestList,updateCount);
+  const pick=d.querySelector('.av input');
+  pick.value=getComputedStyle(d.querySelector('.av')).backgroundColor.replace(/rgba?\((\d+),\s*(\d+),\s*(\d+).*/,(_,r,g,b)=>rgbToHex(+r,+g,+b));
+  pick.addEventListener('input',()=>{const c=hexToRgb(pick.value);d.classList.add('custom');d.style.setProperty('--gb-c',pick.value);d.style.setProperty('--gb-n',mix(c,{r:40,g:30,b:35},.35));});
+  updateCount();}
 
 /* ---------- add buttons ---------- */
 const ADD={diary:addDiary,photo:addPhoto,guest:addGuest};
