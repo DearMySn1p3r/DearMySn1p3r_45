@@ -114,7 +114,9 @@
   .top-right{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;}
   .addr{display:flex;align-items:center;gap:7px;min-width:0;}
   .addr svg{flex:0 0 15px;}
-  .addr span{font-size:11px;color:var(--c-deep);letter-spacing:.04em;outline:none;white-space:nowrap;overflow:hidden;}
+  .addr .url{display:flex;align-items:baseline;min-width:0;font-size:11px;color:var(--c-deep);letter-spacing:.04em;white-space:nowrap;overflow:hidden;}
+  .addr .fix{flex:0 0 auto;user-select:none;}
+  .addr .host{outline:none;min-width:1.5em;overflow:hidden;text-overflow:ellipsis;}
   .bgm{display:flex;align-items:center;gap:8px;background:var(--c-tint);border-radius:999px;padding:5px 14px 5px 5px;width:176px;flex:0 0 176px;}
   .bgm .play{width:20px;height:20px;flex:0 0 20px;border-radius:50%;background:var(--c-white);box-shadow:0 1px 3px var(--c-shadow);position:relative;}
   .bgm .play::after{content:"";position:absolute;left:7.5px;top:6px;border-left:6px solid var(--c-deep);border-top:4px solid transparent;border-bottom:4px solid transparent;}
@@ -433,7 +435,7 @@
             <div class="top-right">
               <div class="addr">
                 <svg id="cloudIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f4a9c0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18h10a4 4 0 0 0 .6-7.95A5.5 5.5 0 0 0 7 9.5 4.25 4.25 0 0 0 7 18z"></path></svg>
-                <span contenteditable="true">http://주소를입력하세요.log</span>
+                <span class="url"><span class="fix">http://</span><span class="host" id="addrText" contenteditable="true">주소를입력하세요</span><span class="fix">.log</span></span>
               </div>
               <div class="bgm">
                 <span class="play"></span>
@@ -874,6 +876,7 @@ function restore(d){
   if(S.shape)document.querySelector(`#shapebar [data-shape="${S.shape}"]`)?.click();
   const F=fixedFields();
   if(d.fields&&d.fields.length===F.length)F.forEach((el,i)=>el.innerHTML=d.fields[i]);
+  const ad=document.getElementById('addrText');ad.textContent=ad.textContent.replace(/^\s*https?:\/\//i,'').replace(/\.log\s*$/i,'');
   heroBox.set(d.hero);profBox.set(d.prof);
   (d.diary||[]).forEach(o=>addDiary(o));
   (d.photos||[]).forEach(o=>addPhoto(o));
