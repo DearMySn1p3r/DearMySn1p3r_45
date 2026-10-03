@@ -76,6 +76,8 @@
   .btn.primary{background:var(--c-deep);border-color:var(--c-deep);color:#fff;}
   .btn.primary:hover{filter:brightness(.96);}
   .btn:disabled{opacity:.55;cursor:default;}
+  .btn-row{display:flex;gap:6px;}
+  .btn-row .btn{margin:0;flex:1;}
   .btn + .btn{margin-top:6px;}
   .link-btn{border:none;background:none;padding:0;margin-top:9px;font-size:11px;color:var(--ui-sub);cursor:pointer;text-decoration:underline;text-underline-offset:3px;}
   .link-btn:hover{color:var(--c-deep);}
@@ -216,8 +218,8 @@
   .gb{display:flex;gap:12px;align-items:flex-start;padding:12px 22px 12px 0;border-bottom:1px solid var(--c-tint);}
   .gb:last-child{border-bottom:none;}
   .av{width:28px;height:28px;border-radius:50%;background:var(--c-av);flex:0 0 28px;}
-  .gb:nth-child(3n+2) .av{background:var(--c-accent);}
-  .gb:nth-child(3n) .av{background:var(--c-line);}
+  .gb[data-tone="1"] .av{background:var(--c-accent);}
+  .gb[data-tone="2"] .av{background:var(--c-line);}
   .gb .cbody{min-width:0;flex:1;}
   .gb .who{display:flex;align-items:baseline;gap:7px;font-size:10.5px;}
   .gb .n{font-weight:700;outline:none;}
@@ -263,15 +265,17 @@
   .pbar button:hover{background:#fff;}
   .pbar button.on{background:var(--c-deep);color:#fff;}
   .photo-frame.shape-circle .pbar{top:50%;bottom:auto;transform:translate(-50%,-50%);}
-  /* album reorder */
+  /* reorder controls */
   .mv{position:absolute;top:6px;left:6px;display:none;gap:3px;z-index:4;}
-  .shot:hover .mv,.shot.moving .mv{display:flex;}
-  @media (hover:none){.shot .mv{display:flex;}}
-  .mv button{width:22px;height:22px;border:none;border-radius:50%;background:rgba(255,255,255,.94);box-shadow:0 1px 4px rgba(0,0,0,.1);color:var(--c-deep);font-family:inherit;font-size:13px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+  .item:hover > .mv,.item.moving > .mv{display:flex;}
+  @media (hover:none){.item > .mv{display:flex;}}
+  .mv-y{top:50%;left:auto;right:22px;transform:translateY(-50%);}
+  .mv button{width:22px;height:22px;border:none;border-radius:50%;background:rgba(255,255,255,.96);box-shadow:0 1px 4px rgba(0,0,0,.12);color:var(--c-deep);font-family:inherit;font-size:13px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
   .mv button:hover{background:#fff;}
   .mv .grip{cursor:grab;touch-action:none;}
-  .shot.moving{opacity:.55;}
+  .item.moving{opacity:.55;}
   .shot.moving .slot{box-shadow:0 0 0 2px var(--c-accent);}
+  .entry.moving,.gb.moving{background:var(--c-tint);border-radius:10px;}
   body.sorting,body.sorting *{cursor:grabbing !important;user-select:none;}
   .exporting .mv{display:none !important;}
   .exporting .pbar{display:none !important;}
@@ -401,7 +405,7 @@
       <button class="btn" data-add="diary">다이어리 글 추가</button>
       <button class="btn" data-add="photo">사진첩 칸 추가</button>
       <button class="btn" data-add="guest">방명록 추가</button>
-      <div class="hint">방명록의 동그라미를 누르면 그 방문자의 색을 바꿀 수 있어요. 오른쪽 탭을 누르면 페이지가 바뀌어요. 항목에 마우스를 올리면 지우기 버튼이 보여요. 사진첩은 왼쪽 위 손잡이를 끌거나 ‹ › 로 순서를 바꿀 수 있어요.</div>
+      <div class="hint">방명록의 동그라미를 누르면 그 방문자의 색을 바꿀 수 있어요. 오른쪽 탭을 누르면 페이지가 바뀌어요. 항목에 마우스를 올리면 지우기 버튼이 보여요. 사진, 다이어리 글, 방명록은 마우스를 올리면 나오는 손잡이를 끌거나 화살표로 순서를 바꿀 수 있어요.</div>
     </div>
 
     <div class="sect">
@@ -412,8 +416,10 @@
 
     <div class="sect">
       <div class="sect-title">Export</div>
-      <button class="btn primary" id="saveBtn">지금 페이지 PNG로 저장</button>
-      <button class="btn" id="gifBtn">GIF로 저장 (페이지 넘김)</button>
+      <div class="btn-row">
+        <button class="btn primary" id="saveBtn" title="지금 보고 있는 페이지를 PNG로 저장">PNG</button>
+        <button class="btn" id="gifBtn" title="Home부터 Photo까지 넘어가는 GIF로 저장">GIF</button>
+      </div>
       <div class="hint">PNG는 미니홈피만 배경 없이 저장돼요. GIF는 Home부터 Photo까지 한 장씩 넘어가요.</div>
     </div>
 
@@ -782,7 +788,40 @@ document.getElementById('heroReset').onclick=()=>heroBox.reset();
 /* ---------- diary ---------- */
 const diaryList=document.getElementById('diaryList');
 function addDiary(o){const d=makeItem('<div class="body"><div class="t hd" contenteditable="true">제목을 입력하세요</div><div class="p" contenteditable="true">문구를 적어주세요</div></div>','entry',diaryList);
+  makeMover(d,diaryList,'y');
   if(o){d.querySelector('.t').innerHTML=o.t;d.querySelector('.p').innerHTML=o.p;}return d;}
+
+/* ---------- reorder any list item: drag the handle or use the arrows ---------- */
+const GRIP='<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><g fill="currentColor"><circle cx="3" cy="2" r="1"/><circle cx="7" cy="2" r="1"/><circle cx="3" cy="5" r="1"/><circle cx="7" cy="5" r="1"/><circle cx="3" cy="8" r="1"/><circle cx="7" cy="8" r="1"/></g></svg>';
+function makeMover(d,list,axis){
+  const mv=document.createElement('div');mv.className='mv'+(axis==='y'?' mv-y':'');
+  const ch=d=>`<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
+  const prev=axis==='y'?ch('M2.5 6.5 5 4l2.5 2.5'):'&lsaquo;',next=axis==='y'?ch('M2.5 3.5 5 6l2.5-2.5'):'&rsaquo;';
+  mv.innerHTML=`<button type="button" class="grip" title="끌어서 순서 바꾸기" aria-label="끌어서 순서 바꾸기">${GRIP}</button><button type="button" data-m="prev" title="앞으로" aria-label="앞으로">${prev}</button><button type="button" data-m="next" title="뒤로" aria-label="뒤로">${next}</button>`;
+  d.appendChild(mv);
+  mv.addEventListener('click',e=>{
+    const m=e.target.closest('button')?.dataset.m;
+    if(m==='prev'&&d.previousElementSibling)list.insertBefore(d,d.previousElementSibling);
+    if(m==='next'&&d.nextElementSibling)list.insertBefore(d.nextElementSibling,d);
+  });
+  const grip=mv.querySelector('.grip');
+  grip.addEventListener('pointerdown',e=>{
+    e.preventDefault();e.stopPropagation();
+    d.classList.add('moving');document.body.classList.add('sorting');
+    const move=ev=>{
+      const el=document.elementFromPoint(ev.clientX,ev.clientY);
+      const t=el&&el.closest('.item');
+      if(!t||t===d||t.parentNode!==list)return;
+      const r=t.getBoundingClientRect();
+      const after=axis==='y'?ev.clientY>r.top+r.height/2
+        :(ev.clientY>r.bottom?true:ev.clientY<r.top?false:ev.clientX>r.left+r.width/2);
+      list.insertBefore(d,after?t.nextSibling:t);
+    };
+    // listen on the window: moving the item in the DOM drops pointer capture
+    const up=()=>{d.classList.remove('moving');document.body.classList.remove('sorting');window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up);window.removeEventListener('pointercancel',up);};
+    window.addEventListener('pointermove',move);window.addEventListener('pointerup',up);window.addEventListener('pointercancel',up);
+  });
+}
 
 /* ---------- photo album ---------- */
 const gallery=document.getElementById('gallery');
@@ -792,40 +831,19 @@ function addPhoto(o){
   d.querySelector(':scope > .rm').addEventListener('click',()=>BOXES.delete(box));
   if(o){d.querySelector('.cap').innerHTML=o.cap;box.set(o.img);}
 
-  // reorder: drag the handle, or use the arrows
-  const mv=document.createElement('div');mv.className='mv';
-  mv.innerHTML='<button type="button" class="grip" title="끌어서 순서 바꾸기" aria-label="끌어서 순서 바꾸기"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><g fill="currentColor"><circle cx="3" cy="2" r="1"/><circle cx="7" cy="2" r="1"/><circle cx="3" cy="5" r="1"/><circle cx="7" cy="5" r="1"/><circle cx="3" cy="8" r="1"/><circle cx="7" cy="8" r="1"/></g></svg></button><button type="button" data-m="prev" title="앞으로" aria-label="앞으로">&lsaquo;</button><button type="button" data-m="next" title="뒤로" aria-label="뒤로">&rsaquo;</button>';
-  d.appendChild(mv);
-  mv.addEventListener('click',e=>{
-    const m=e.target.closest('button')?.dataset.m;
-    if(m==='prev'&&d.previousElementSibling)gallery.insertBefore(d,d.previousElementSibling);
-    if(m==='next'&&d.nextElementSibling)gallery.insertBefore(d.nextElementSibling,d);
-  });
-  const grip=mv.querySelector('.grip');
-  grip.addEventListener('pointerdown',e=>{
-    e.preventDefault();e.stopPropagation();
-    d.classList.add('moving');document.body.classList.add('sorting');
-    const move=ev=>{
-      const el=document.elementFromPoint(ev.clientX,ev.clientY);
-      const t=el&&el.closest('.shot');
-      if(!t||t===d||t.parentNode!==gallery)return;
-      const r=t.getBoundingClientRect();
-      const after=ev.clientY>r.bottom?true:ev.clientY<r.top?false:ev.clientX>r.left+r.width/2;
-      gallery.insertBefore(d,after?t.nextSibling:t);
-    };
-    // listen on the window: moving the item in the DOM drops pointer capture
-    const up=()=>{d.classList.remove('moving');document.body.classList.remove('sorting');window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up);window.removeEventListener('pointercancel',up);};
-    window.addEventListener('pointermove',move);window.addEventListener('pointerup',up);window.addEventListener('pointercancel',up);
-  });
+  makeMover(d,gallery,'grid');
 }
 
 /* ---------- guest book ---------- */
 const guestList=document.getElementById('guestList');
 function updateCount(){document.getElementById('gbCount').textContent=guestList.children.length;}
 function addGuest(o){const d=makeItem('<label class="av" title="눌러서 색 바꾸기"><input type="color" aria-label="방문자 색"></label><div class="cbody"><div class="who"><span class="n" contenteditable="true">이름</span></div><div class="txt" contenteditable="true">문구를 적어주세요</div></div>','gb',guestList,updateCount);
+  // each visitor keeps its own default tone, so moving it doesn't change its colour
+  d.dataset.tone=o&&o.tone!=null?o.tone:(guestList.children.length-1)%3;
   const pick=d.querySelector('.av input');
   pick.value=getComputedStyle(d.querySelector('.av')).backgroundColor.replace(/rgba?\((\d+),\s*(\d+),\s*(\d+).*/,(_,r,g,b)=>rgbToHex(+r,+g,+b));
   pick.addEventListener('input',()=>{const c=hexToRgb(pick.value);d.classList.add('custom');d.style.setProperty('--gb-c',pick.value);d.style.setProperty('--gb-n',mix(c,{r:40,g:30,b:35},.35));scheduleSave();});
+  makeMover(d,guestList,'y');
   if(o){d.querySelector('.n').innerHTML=o.n;d.querySelector('.txt').innerHTML=o.txt;if(o.color){pick.value=o.color;pick.dispatchEvent(new Event('input'));}}
   updateCount();return d;}
 
@@ -856,7 +874,7 @@ function snapshot(){
     hero:heroBox.get(),prof:profBox.get(),
     diary:[...diaryList.children].map(d=>({t:d.querySelector('.t').innerHTML,p:d.querySelector('.p').innerHTML})),
     photos:[...gallery.children].map(d=>({cap:d.querySelector('.cap').innerHTML,img:d._box.get()})),
-    guest:[...guestList.children].map(d=>({n:d.querySelector('.n').innerHTML,txt:d.querySelector('.txt').innerHTML,color:d.classList.contains('custom')?d.querySelector('.av input').value:''}))
+    guest:[...guestList.children].map(d=>({n:d.querySelector('.n').innerHTML,txt:d.querySelector('.txt').innerHTML,color:d.classList.contains('custom')?d.querySelector('.av input').value:'',tone:+d.dataset.tone}))
   };
 }
 let restoring=true,saveT;
@@ -943,7 +961,7 @@ document.getElementById('gifBtn').addEventListener('click',async()=>{
     for(let i=0;i<PAGE_ORDER.length;i++){
       showToast('GIF 만드는 중 ('+(i+1)+'/'+PAGE_ORDER.length+')',true);
       showPage(PAGE_ORDER[i]);await frame();await wait(60);fitAll();await frame();
-      shots.push(await html2canvas(capture,{scale:1.5,backgroundColor:'#ffffff',useCORS:true,logging:false}));
+      shots.push(await html2canvas(capture,{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false}));
     }
     document.body.classList.remove('exporting');
     showToast('GIF 합치는 중',true);await frame();
@@ -951,7 +969,13 @@ document.getElementById('gifBtn').addEventListener('click',async()=>{
     const cv=document.createElement('canvas');cv.width=W;cv.height=H;
     const ctx=cv.getContext('2d',{willReadFrequently:true});
     const gif=GIFEncoder();
-    const put=(delay)=>{const d=ctx.getImageData(0,0,W,H).data;const pal=quantize(d,256);gif.writeFrame(applyPalette(d,pal),W,H,{palette:pal,delay});};
+    // light ordered dithering hides colour banding in the soft gradients
+    const BAYER=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5].map(v=>(v/16-.47)*7);
+    const put=(delay)=>{
+      const d=ctx.getImageData(0,0,W,H).data,pal=quantize(d,256);
+      for(let y=0,i=0;y<H;y++)for(let x=0;x<W;x++,i+=4){const n=BAYER[((y&3)<<2)|(x&3)];d[i]+=n;d[i+1]+=n;d[i+2]+=n;}
+      gif.writeFrame(applyPalette(d,pal),W,H,{palette:pal,delay});
+    };
     for(let i=0;i<shots.length;i++){
       const a=shots[i],b=shots[(i+1)%shots.length];
       ctx.globalAlpha=1;ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.drawImage(a,0,0);put(1800);
