@@ -75,6 +75,7 @@
   .btn:hover{background:var(--ui-bg);}
   .btn.primary{background:var(--c-deep);border-color:var(--c-deep);color:#fff;}
   .btn.primary:hover{filter:brightness(.96);}
+  .btn:disabled{opacity:.55;cursor:default;}
   .btn + .btn{margin-top:6px;}
   .link-btn{border:none;background:none;padding:0;margin-top:9px;font-size:11px;color:var(--ui-sub);cursor:pointer;text-decoration:underline;text-underline-offset:3px;}
   .link-btn:hover{color:var(--c-deep);}
@@ -260,6 +261,7 @@
   .exporting .tab{background:var(--c-soft) !important;}
   .exporting .tab.active{background:var(--c-white) !important;box-shadow:3px 4px 10px var(--c-shadow) !important;}
   .exporting .tags span{background:var(--c-tint) !important;}
+  .exporting .note{background:var(--c-tint) !important;}
 
 
   /* ===================== OOC modal ===================== */
@@ -392,7 +394,8 @@
     <div class="sect" style="padding-bottom:30px;">
       <div class="sect-title">Export</div>
       <button class="btn primary" id="saveBtn">지금 페이지 PNG로 저장</button>
-      <div class="hint">미니홈피만 배경 없이 고화질로 저장돼요.</div>
+      <button class="btn" id="gifBtn">GIF로 저장 (페이지 넘김)</button>
+      <div class="hint">PNG는 미니홈피만 배경 없이 저장돼요. GIF는 Home부터 Photo까지 한 장씩 넘어가요.</div>
     </div>
   </aside>
 
@@ -460,10 +463,10 @@
                 </div>
                 <div>
                   <div class="sec-hd">
-                    <div class="title sm hd" contenteditable="true">소제목을 입력하세요</div>
-                    <button type="button" class="write" data-add="one">추가</button>
+                    <div class="title sm hd"><span contenteditable="true">방명록</span><span class="count" id="gbCount">0</span></div>
+                    <button type="button" class="write" data-add="guest">글쓰기</button>
                   </div>
-                  <div id="oneList"></div>
+                  <div id="guestList"></div>
                 </div>
               </div>
 
@@ -520,17 +523,6 @@
                 </div>
               </div>
 
-              <!-- GUEST -->
-              <div class="page" data-page="guest">
-                <div>
-                  <div class="sec-hd">
-                    <div class="title hd"><span contenteditable="true">방명록</span><span class="count" id="gbCount">0</span></div>
-                    <button type="button" class="write" data-add="guest">글쓰기</button>
-                  </div>
-                  <div id="guestList"></div>
-                </div>
-              </div>
-
             </section>
           </div>
         </div></div></div>
@@ -540,7 +532,6 @@
           <div class="tab" data-page="profile" role="button" tabindex="0">Profile</div>
           <div class="tab" data-page="diary" role="button" tabindex="0">Diary</div>
           <div class="tab" data-page="photo" role="button" tabindex="0">Photo</div>
-          <div class="tab" data-page="guest" role="button" tabindex="0">Guest</div>
         </nav>
       </div>
     </div>
@@ -559,7 +550,6 @@
       <button data-ooc="profile">Profile</button>
       <button data-ooc="diary">Diary</button>
       <button data-ooc="photo">Photo</button>
-      <button data-ooc="guest">Guest</button>
     </div>
     <textarea id="oocText" spellcheck="false"></textarea>
     <div class="sheet-ft">
@@ -758,8 +748,6 @@ zoom.addEventListener('input',()=>heroBox.setZoom(parseFloat(zoom.value)));
 document.getElementById('heroReset').onclick=()=>heroBox.reset();
 
 /* ---------- home: 일촌평 ---------- */
-const oneList=document.getElementById('oneList');
-function addOne(){makeItem('<span class="say" contenteditable="true">문구를 적어주세요</span>','one',oneList);}
 
 /* ---------- diary ---------- */
 const diaryList=document.getElementById('diaryList');
@@ -779,15 +767,14 @@ function updateCount(){document.getElementById('gbCount').textContent=guestList.
 function addGuest(){makeItem('<span class="av"></span><div class="cbody"><div class="who"><span class="n" contenteditable="true">이름</span></div><div class="txt" contenteditable="true">문구를 적어주세요</div></div>','gb',guestList,updateCount);updateCount();}
 
 /* ---------- add buttons ---------- */
-const ADD={one:addOne,diary:addDiary,photo:addPhoto,guest:addGuest};
-const PAGE_OF={one:'home',diary:'diary',photo:'photo',guest:'guest'};
+const ADD={diary:addDiary,photo:addPhoto,guest:addGuest};
+const PAGE_OF={diary:'diary',photo:'photo',guest:'home'};
 document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{const k=b.dataset.add;showPage(PAGE_OF[k]);ADD[k]();});
 
 /* defaults */
-addOne();addOne();
 addDiary();addDiary();
 for(let i=0;i<6;i++)addPhoto();
-addGuest();addGuest();addGuest();
+addGuest();addGuest();
 
 /* ---------- keep images fitted ---------- */
 function fitAll(){BOXES.forEach(b=>b.render());}
@@ -795,7 +782,7 @@ let rT;window.addEventListener('resize',()=>{clearTimeout(rT);rT=setTimeout(fitA
 
 /* ---------- export (mini homepage only) ---------- */
 const toast=document.getElementById('toast');
-function showToast(m){toast.textContent=m;toast.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>toast.classList.remove('show'),2000);}
+function showToast(m,stay){toast.textContent=m;toast.classList.add('show');clearTimeout(toast._t);if(!stay)toast._t=setTimeout(()=>toast.classList.remove('show'),2000);}
 document.getElementById('saveBtn').addEventListener('click',async()=>{
   showToast('이미지 만드는 중');
   if(document.activeElement)document.activeElement.blur();
@@ -811,6 +798,56 @@ document.getElementById('saveBtn').addEventListener('click',async()=>{
 });
 
 
+/* ---------- GIF export: pages flip one by one ---------- */
+const PAGE_ORDER=['home','profile','diary','photo'];
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const frame=()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+let gifBusy=false;
+document.getElementById('gifBtn').addEventListener('click',async()=>{
+  if(gifBusy)return;gifBusy=true;
+  const btn=document.getElementById('gifBtn'),prev=current,main=document.querySelector('.main'),oldMin=main.style.minHeight;
+  btn.disabled=true;
+  try{
+    showToast('GIF 준비 중',true);
+    const {GIFEncoder,quantize,applyPalette}=await import('https://unpkg.com/gifenc@1.0.3/dist/gifenc.esm.js');
+    if(document.activeElement)document.activeElement.blur();
+    await (document.fonts?document.fonts.ready:Promise.resolve());
+    // same height for every page so the GIF frame doesn't jump
+    let maxH=0;
+    for(const p of PAGE_ORDER){showPage(p);await frame();maxH=Math.max(maxH,main.scrollHeight);}
+    main.style.minHeight=maxH+'px';
+    document.body.classList.add('exporting');
+    const shots=[];
+    for(let i=0;i<PAGE_ORDER.length;i++){
+      showToast('GIF 만드는 중 ('+(i+1)+'/'+PAGE_ORDER.length+')',true);
+      showPage(PAGE_ORDER[i]);await frame();await wait(60);fitAll();await frame();
+      shots.push(await html2canvas(capture,{scale:1.5,backgroundColor:'#ffffff',useCORS:true,logging:false}));
+    }
+    document.body.classList.remove('exporting');
+    showToast('GIF 합치는 중',true);await frame();
+    const W=shots[0].width,H=shots[0].height;
+    const cv=document.createElement('canvas');cv.width=W;cv.height=H;
+    const ctx=cv.getContext('2d',{willReadFrequently:true});
+    const gif=GIFEncoder();
+    const put=(delay)=>{const d=ctx.getImageData(0,0,W,H).data;const pal=quantize(d,256);gif.writeFrame(applyPalette(d,pal),W,H,{palette:pal,delay});};
+    for(let i=0;i<shots.length;i++){
+      const a=shots[i],b=shots[(i+1)%shots.length];
+      ctx.globalAlpha=1;ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.drawImage(a,0,0);put(1800);
+      for(const t of [.2,.4,.6,.8]){ctx.globalAlpha=1;ctx.drawImage(a,0,0);ctx.globalAlpha=t;ctx.drawImage(b,0,0);put(60);}
+      await frame();
+    }
+    ctx.globalAlpha=1;gif.finish();
+    const url=URL.createObjectURL(new Blob([gif.bytes()],{type:'image/gif'}));
+    const link=document.createElement('a');link.download='my-minihompy.gif';link.href=url;link.click();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
+    showToast('GIF로 저장되었어요');
+  }catch(err){console.error(err);showToast('GIF 저장에 실패했어요. 인터넷 연결을 확인해주세요');}
+  finally{
+    document.body.classList.remove('exporting');main.style.minHeight=oldMin;showPage(prev);
+    btn.disabled=false;gifBusy=false;
+  }
+});
+
 /* ---------- OOC prompt ---------- */
 const OOC_HEAD='*[OOC: 이전 RP 중지. 새로운 상황 전개. PC가 직접 꾸미는 개인 미니홈피를 채울 콘텐츠를 출력한다. 홈피 전체의 톤은 PC의 성격과 말투가 그대로 묻어나는 사적인 공간이어야 하며, 곳곳의 작은 디테일에서 NPC와의 관계성이 은근히 드러나야 한다. 묘사문이 아닌, 실제 미니홈피에 그대로 옮겨 적을 수 있는 형식으로 출력하되, 모든 항목이 같은 시기의 분위기 안에서 자연스럽게 이어지도록 작성할 것.';
 const OOC_FOOT='전체적으로 PC 특유의 말투와 톤이 일관되게 유지되어야 하며, 홈피를 둘러보는 것만으로 PC의 요즘과 NPC와의 거리감이 자연스럽게 보여야 한다.]*';
@@ -823,7 +860,7 @@ const OOC_PART={
     "· 음악: 지금 홈피에 걸어둔 곡 한 곡. '곡 제목 - 아티스트' 형식."],
   home:['[Home]',
     '· 메인: 대표 사진에 붙일 제목과, 사진이 어떤 장면인지 한 줄 설명.',
-    '· 소제목 & 문구: 메인 사진 아래에 적어둔 짧은 소제목 하나와 한 줄 문구 두 개.'],
+    '· 방명록 2~3개: 메인 사진 아래 방명록에 남겨진 이름과 메시지. 그중 하나 이상은 NPC가 남긴 것으로, 겉보기엔 평범하지만 두 사람만 아는 맥락이 담길 것.'],
   profile:['[Profile]',
     '· 부제: Profile 옆에 붙을 짧은 부제.',
     '· 이름 / 생일 / 취미 / 좋아하는 것 / 싫어하는 것: 각 한 줄.',
@@ -833,11 +870,9 @@ const OOC_PART={
     '· 일기 두 편: 각각 제목과 서너 문장의 본문. 그중 하나는 NPC가 직접 등장하지 않아도 NPC를 떠올리게 할 것.'],
   photo:['[Photo]',
     '· 부제: 사진첩 옆에 붙을 짧은 부제.',
-    '· 사진 여섯 장: 각 사진이 어떤 장면인지 한 줄 설명과, 사진 아래에 적을 짧은 캡션.'],
-  guest:['[Guest]',
-    '· 방명록 2~3개: 남긴 사람 이름과 메시지. 그중 하나 이상은 NPC가 남긴 것으로, 겉보기엔 평범하지만 두 사람만 아는 맥락이 담길 것.']
+    '· 사진 여섯 장: 각 사진이 어떤 장면인지 한 줄 설명과, 사진 아래에 적을 짧은 캡션.']
 };
-const OOC_SET={all:['common','home','profile','diary','photo','guest'],home:['common','home'],profile:['profile'],diary:['diary'],photo:['photo'],guest:['guest']};
+const OOC_SET={all:['common','home','profile','diary','photo'],home:['common','home'],profile:['profile'],diary:['diary'],photo:['photo']};
 function buildOOC(k){return [OOC_HEAD,...OOC_SET[k].map(p=>OOC_PART[p].join('\n')),OOC_FOOT].join('\n\n');}
 const ooc=document.getElementById('ooc'),oocText=document.getElementById('oocText');
 function openOOC(){ooc.classList.add('open');oocText.value=buildOOC(document.querySelector('#oocbar button.active').dataset.ooc);oocText.scrollTop=0;}
