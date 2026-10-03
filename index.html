@@ -255,6 +255,17 @@
   .pbar button:hover{background:#fff;}
   .pbar button.on{background:var(--c-deep);color:#fff;}
   .photo-frame.shape-circle .pbar{top:50%;bottom:auto;transform:translate(-50%,-50%);}
+  /* album reorder */
+  .mv{position:absolute;top:6px;left:6px;display:none;gap:3px;z-index:4;}
+  .shot:hover .mv,.shot.moving .mv{display:flex;}
+  @media (hover:none){.shot .mv{display:flex;}}
+  .mv button{width:22px;height:22px;border:none;border-radius:50%;background:rgba(255,255,255,.94);box-shadow:0 1px 4px rgba(0,0,0,.1);color:var(--c-deep);font-family:inherit;font-size:13px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+  .mv button:hover{background:#fff;}
+  .mv .grip{cursor:grab;touch-action:none;}
+  .shot.moving{opacity:.55;}
+  .shot.moving .slot{box-shadow:0 0 0 2px var(--c-accent);}
+  body.sorting,body.sorting *{cursor:grabbing !important;user-select:none;}
+  .exporting .mv{display:none !important;}
   .exporting .pbar{display:none !important;}
   .exporting .ph,.exporting .write,.exporting .rm{display:none !important;}
   .exporting [contenteditable]{background:transparent !important;box-shadow:none !important;}
@@ -382,7 +393,7 @@
       <button class="btn" data-add="diary">다이어리 글 추가</button>
       <button class="btn" data-add="photo">사진첩 칸 추가</button>
       <button class="btn" data-add="guest">방명록 추가</button>
-      <div class="hint">오른쪽 탭을 누르면 페이지가 바뀌어요. 항목에 마우스를 올리면 지우기 버튼이 보여요.</div>
+      <div class="hint">오른쪽 탭을 누르면 페이지가 바뀌어요. 항목에 마우스를 올리면 지우기 버튼이 보여요. 사진첩은 왼쪽 위 손잡이를 끌거나 ‹ › 로 순서를 바꿀 수 있어요.</div>
     </div>
 
     <div class="sect">
@@ -759,6 +770,32 @@ function addPhoto(){
   const d=makeItem('<div class="slot"><img alt="" /><div class="ph"><em>+</em>사진</div></div><div class="cap" contenteditable="true">문구를 적어주세요</div>','shot',gallery);
   const box=makePhotoBox(d.querySelector('.slot'));
   d.querySelector(':scope > .rm').addEventListener('click',()=>BOXES.delete(box));
+
+  // reorder: drag the handle, or use the arrows
+  const mv=document.createElement('div');mv.className='mv';
+  mv.innerHTML='<button type="button" class="grip" title="끌어서 순서 바꾸기" aria-label="끌어서 순서 바꾸기"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><g fill="currentColor"><circle cx="3" cy="2" r="1"/><circle cx="7" cy="2" r="1"/><circle cx="3" cy="5" r="1"/><circle cx="7" cy="5" r="1"/><circle cx="3" cy="8" r="1"/><circle cx="7" cy="8" r="1"/></g></svg></button><button type="button" data-m="prev" title="앞으로" aria-label="앞으로">&lsaquo;</button><button type="button" data-m="next" title="뒤로" aria-label="뒤로">&rsaquo;</button>';
+  d.appendChild(mv);
+  mv.addEventListener('click',e=>{
+    const m=e.target.closest('button')?.dataset.m;
+    if(m==='prev'&&d.previousElementSibling)gallery.insertBefore(d,d.previousElementSibling);
+    if(m==='next'&&d.nextElementSibling)gallery.insertBefore(d.nextElementSibling,d);
+  });
+  const grip=mv.querySelector('.grip');
+  grip.addEventListener('pointerdown',e=>{
+    e.preventDefault();e.stopPropagation();
+    d.classList.add('moving');document.body.classList.add('sorting');
+    const move=ev=>{
+      const el=document.elementFromPoint(ev.clientX,ev.clientY);
+      const t=el&&el.closest('.shot');
+      if(!t||t===d||t.parentNode!==gallery)return;
+      const r=t.getBoundingClientRect();
+      const after=ev.clientY>r.bottom?true:ev.clientY<r.top?false:ev.clientX>r.left+r.width/2;
+      gallery.insertBefore(d,after?t.nextSibling:t);
+    };
+    // listen on the window: moving the item in the DOM drops pointer capture
+    const up=()=>{d.classList.remove('moving');document.body.classList.remove('sorting');window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up);window.removeEventListener('pointercancel',up);};
+    window.addEventListener('pointermove',move);window.addEventListener('pointerup',up);window.addEventListener('pointercancel',up);
+  });
 }
 
 /* ---------- guest book ---------- */
