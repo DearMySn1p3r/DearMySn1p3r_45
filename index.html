@@ -408,11 +408,17 @@
       <div class="hint">AI 롤플레이에 붙여 넣으면 PC가 꾸민 미니홈피 내용을 받아볼 수 있어요.</div>
     </div>
 
-    <div class="sect" style="padding-bottom:30px;">
+    <div class="sect">
       <div class="sect-title">Export</div>
       <button class="btn primary" id="saveBtn">지금 페이지 PNG로 저장</button>
       <button class="btn" id="gifBtn">GIF로 저장 (페이지 넘김)</button>
       <div class="hint">PNG는 미니홈피만 배경 없이 저장돼요. GIF는 Home부터 Photo까지 한 장씩 넘어가요.</div>
+    </div>
+
+    <div class="sect" style="padding-bottom:30px;">
+      <div class="sect-title">Reset</div>
+      <button class="btn" id="resetBtn">처음 상태로 초기화</button>
+      <div class="hint" id="savedHint">쓴 내용은 이 브라우저에 자동으로 저장돼요. 다시 열어도 그대로 남아 있어요.</div>
     </div>
   </aside>
 
@@ -626,12 +632,15 @@ seg('fontbar','font',v=>{capture.classList.remove('font-clean','font-base','font
 
 /* ---------- helpers ---------- */
 function readImg(f,cb){const rd=new FileReader();rd.onload=e=>cb(e.target.result);rd.readAsDataURL(f);}
-function plainPaste(el){el.addEventListener('paste',e=>{e.preventDefault();document.execCommand('insertText',false,(e.clipboardData||window.clipboardData).getData('text'));});}
+// one paste handler for every editable field (attaching per element made list items paste twice)
+document.addEventListener('paste',e=>{
+  const el=e.target.closest&&e.target.closest('[contenteditable="true"]');if(!el)return;
+  e.preventDefault();document.execCommand('insertText',false,(e.clipboardData||window.clipboardData).getData('text'));
+});
 function makeItem(html,cls,parent,after){
   const d=document.createElement('div');d.className=cls+' item';d.innerHTML=html+'<span class="rm" title="삭제"></span>';
   parent.appendChild(d);
   d.querySelector(':scope > .rm').onclick=e=>{e.stopPropagation();d.remove();after&&after();};
-  d.querySelectorAll('[contenteditable="true"]').forEach(plainPaste);
   return d;
 }
 
@@ -697,6 +706,8 @@ function makePhotoBox(box,onChange){
     reset(){if(locked)return;st={z:1,cx:.5,cy:.5};api.render();},
     upload(){uploadTarget=api;anyFile.click();},
     load(src){st={z:1,cx:.5,cy:.5};if(locked)api.setLocked(false);img.src=src;box.classList.add('has-img');},
+    get(){return {src:box.classList.contains('has-img')?img.src:'',z:st.z,cx:st.cx,cy:st.cy,locked};},
+    set(o){if(!o||!o.src)return;st={z:o.z||1,cx:o.cx??.5,cy:o.cy??.5};img.src=o.src;box.classList.add('has-img');if(o.locked)api.setLocked(true);},
     setLocked(v){locked=v;box.classList.toggle('locked',v);lockBtn.textContent=v?'고정 해제':'고정';lockBtn.classList.toggle('on',v);onChange&&onChange(st.z,locked);}
   };
   img.addEventListener('load',()=>api.render());
@@ -768,14 +779,16 @@ document.getElementById('heroReset').onclick=()=>heroBox.reset();
 
 /* ---------- diary ---------- */
 const diaryList=document.getElementById('diaryList');
-function addDiary(){makeItem('<div class="body"><div class="t hd" contenteditable="true">제목을 입력하세요</div><div class="p" contenteditable="true">문구를 적어주세요</div></div>','entry',diaryList);}
+function addDiary(o){const d=makeItem('<div class="body"><div class="t hd" contenteditable="true">제목을 입력하세요</div><div class="p" contenteditable="true">문구를 적어주세요</div></div>','entry',diaryList);
+  if(o){d.querySelector('.t').innerHTML=o.t;d.querySelector('.p').innerHTML=o.p;}return d;}
 
 /* ---------- photo album ---------- */
 const gallery=document.getElementById('gallery');
-function addPhoto(){
+function addPhoto(o){
   const d=makeItem('<div class="slot"><img alt="" /><div class="ph"><em>+</em>사진</div></div><div class="cap" contenteditable="true">문구를 적어주세요</div>','shot',gallery);
-  const box=makePhotoBox(d.querySelector('.slot'));
+  const box=makePhotoBox(d.querySelector('.slot'));d._box=box;
   d.querySelector(':scope > .rm').addEventListener('click',()=>BOXES.delete(box));
+  if(o){d.querySelector('.cap').innerHTML=o.cap;box.set(o.img);}
 
   // reorder: drag the handle, or use the arrows
   const mv=document.createElement('div');mv.className='mv';
@@ -807,21 +820,80 @@ function addPhoto(){
 /* ---------- guest book ---------- */
 const guestList=document.getElementById('guestList');
 function updateCount(){document.getElementById('gbCount').textContent=guestList.children.length;}
-function addGuest(){const d=makeItem('<label class="av" title="눌러서 색 바꾸기"><input type="color" aria-label="방문자 색"></label><div class="cbody"><div class="who"><span class="n" contenteditable="true">이름</span></div><div class="txt" contenteditable="true">문구를 적어주세요</div></div>','gb',guestList,updateCount);
+function addGuest(o){const d=makeItem('<label class="av" title="눌러서 색 바꾸기"><input type="color" aria-label="방문자 색"></label><div class="cbody"><div class="who"><span class="n" contenteditable="true">이름</span></div><div class="txt" contenteditable="true">문구를 적어주세요</div></div>','gb',guestList,updateCount);
   const pick=d.querySelector('.av input');
   pick.value=getComputedStyle(d.querySelector('.av')).backgroundColor.replace(/rgba?\((\d+),\s*(\d+),\s*(\d+).*/,(_,r,g,b)=>rgbToHex(+r,+g,+b));
-  pick.addEventListener('input',()=>{const c=hexToRgb(pick.value);d.classList.add('custom');d.style.setProperty('--gb-c',pick.value);d.style.setProperty('--gb-n',mix(c,{r:40,g:30,b:35},.35));});
-  updateCount();}
+  pick.addEventListener('input',()=>{const c=hexToRgb(pick.value);d.classList.add('custom');d.style.setProperty('--gb-c',pick.value);d.style.setProperty('--gb-n',mix(c,{r:40,g:30,b:35},.35));scheduleSave();});
+  if(o){d.querySelector('.n').innerHTML=o.n;d.querySelector('.txt').innerHTML=o.txt;if(o.color){pick.value=o.color;pick.dispatchEvent(new Event('input'));}}
+  updateCount();return d;}
 
 /* ---------- add buttons ---------- */
 const ADD={diary:addDiary,photo:addPhoto,guest:addGuest};
 const PAGE_OF={diary:'diary',photo:'photo',guest:'home'};
 document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{const k=b.dataset.add;showPage(PAGE_OF[k]);ADD[k]();});
 
-/* defaults */
-addDiary();addDiary();
-for(let i=0;i<6;i++)addPhoto();
-addGuest();addGuest();
+/* defaults (replaced by saved content when there is any) */
+function addDefaults(){addDiary();addDiary();for(let i=0;i<6;i++)addPhoto();addGuest();addGuest();}
+
+
+/* ---------- auto-save (IndexedDB, so photos fit too) ---------- */
+const STORE={
+  db:null,
+  open(){return this.db||(this.db=new Promise((res,rej)=>{const r=indexedDB.open('mini-homepage-maker',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);}));},
+  async run(mode,fn){const db=await this.open();return new Promise((res,rej)=>{const tx=db.transaction('kv',mode);const q=fn(tx.objectStore('kv'));tx.oncomplete=()=>res(q&&q.result);tx.onerror=()=>rej(tx.error);});},
+  get(){return this.run('readonly',s=>s.get('state'));},
+  put(v){return this.run('readwrite',s=>s.put(v,'state'));},
+  clear(){return this.run('readwrite',s=>s.delete('state'));}
+};
+const fixedFields=()=>[...capture.querySelectorAll('[contenteditable="true"]')].filter(el=>!el.closest('.item'));
+const clsOf=(sel,prefix)=>{const b=document.querySelector(sel);const c=[...b.classList].find(x=>x.startsWith(prefix));return c;};
+function snapshot(){
+  return {v:1,
+    settings:{color1,color2,mode,skin:clsOf('#book','skin-'),font:clsOf('#capture','font-'),shape:clsOf('#profFrame','shape-'),page:current},
+    fields:fixedFields().map(el=>el.innerHTML),
+    hero:heroBox.get(),prof:profBox.get(),
+    diary:[...diaryList.children].map(d=>({t:d.querySelector('.t').innerHTML,p:d.querySelector('.p').innerHTML})),
+    photos:[...gallery.children].map(d=>({cap:d.querySelector('.cap').innerHTML,img:d._box.get()})),
+    guest:[...guestList.children].map(d=>({n:d.querySelector('.n').innerHTML,txt:d.querySelector('.txt').innerHTML,color:d.classList.contains('custom')?d.querySelector('.av input').value:''}))
+  };
+}
+let restoring=true,saveT;
+function scheduleSave(){if(restoring)return;clearTimeout(saveT);saveT=setTimeout(()=>STORE.put(snapshot()).catch(()=>{}),500);}
+new MutationObserver(scheduleSave).observe(capture,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['class','style','src']});
+document.querySelector('.editor').addEventListener('click',()=>setTimeout(scheduleSave,0));
+document.querySelector('.editor').addEventListener('input',scheduleSave);
+window.addEventListener('pagehide',()=>{if(!restoring)STORE.put(snapshot());});
+
+function restore(d){
+  const S=d.settings||{};
+  if(S.color2)color2=S.color2;
+  if(S.mode)document.querySelector(`#modebar [data-mode="${S.mode}"]`)?.click();
+  applyTheme(S.color1||PRESETS[0]);
+  if(S.skin)document.querySelector(`#skinbar [data-skin="${S.skin}"]`)?.click();
+  if(S.font)document.querySelector(`#fontbar [data-font="${S.font}"]`)?.click();
+  if(S.shape)document.querySelector(`#shapebar [data-shape="${S.shape}"]`)?.click();
+  const F=fixedFields();
+  if(d.fields&&d.fields.length===F.length)F.forEach((el,i)=>el.innerHTML=d.fields[i]);
+  heroBox.set(d.hero);profBox.set(d.prof);
+  (d.diary||[]).forEach(o=>addDiary(o));
+  (d.photos||[]).forEach(o=>addPhoto(o));
+  (d.guest||[]).forEach(o=>addGuest(o));
+  showPage(S.page||'home');
+}
+(async()=>{
+  let d=null;
+  try{d=await STORE.get();}catch(e){$saveHint('이 브라우저에서는 자동 저장을 쓸 수 없어요.');}
+  if(d&&d.v===1)restore(d);else addDefaults();
+  requestAnimationFrame(()=>{restoring=false;});
+})();
+function $saveHint(t){const h=document.getElementById('savedHint');if(h)h.textContent=t;}
+
+document.getElementById('resetBtn').onclick=async()=>{
+  if(!confirm('모든 내용과 사진을 지우고 처음 상태로 되돌릴까요?\n되돌린 뒤에는 복구할 수 없어요.'))return;
+  restoring=true;clearTimeout(saveT);
+  try{await STORE.clear();}catch(e){}
+  location.reload();
+};
 
 /* ---------- keep images fitted ---------- */
 function fitAll(){BOXES.forEach(b=>b.render());}
@@ -936,7 +1008,6 @@ document.getElementById('oocCopy').onclick=async()=>{
   showToast('복사되었어요');
 };
 
-document.querySelectorAll('[contenteditable="true"]').forEach(plainPaste);
 </script>
 </body>
 </html>
